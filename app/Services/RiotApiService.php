@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class RiotApiService
@@ -71,7 +72,15 @@ class RiotApiService
             'X-Riot-Token' => $this->apiKey,
         ])->get($url);
 
-        return $response->json();
+        $matchData = $response->json();
+
+        // Vérification si la clé 'info' existe dans la réponse
+        if (!isset($matchData['info'])) {
+            \Log::error("Erreur API Riot - getMatchDetails: 'info' absent pour le match {$matchId}. Réponse: " . json_encode($matchData));
+            return null; // Retourner null si la réponse est invalide
+        }
+
+        return $matchData;
     }
 
     /**
@@ -79,7 +88,8 @@ class RiotApiService
      */
     public function getDetailedStats($puuid, $region = "europe")
     {
-        $matchIds = $this->getMatchHistory($puuid);
+        $matchIds = $this->getMatchHistory($puuid, $region, 0, 10); // Récupérer uniquement les 10 derniers matchs
+
         $stats = [
             'totalGames' => 0,
             'wins' => 0,
@@ -88,11 +98,17 @@ class RiotApiService
             'deaths' => 0,
             'assists' => 0,
             'championsPlayed' => [],
-            'roleCount' => [],
         ];
 
         foreach ($matchIds as $matchId) {
             $matchData = $this->getMatchDetails($matchId);
+
+            // Vérifier que les données sont valides
+            if (!$matchData || !isset($matchData['info']['participants'])) {
+                \Log::warning("Match ignoré (données invalides) : {$matchId}");
+                continue;
+            }
+
             $playerData = collect($matchData['info']['participants'])
                 ->where('puuid', $puuid)
                 ->first();
@@ -101,7 +117,7 @@ class RiotApiService
                 continue;
             }
 
-            // Calculer les stats
+            // Mettre à jour les stats
             $stats['totalGames']++;
             $stats['wins'] += $playerData['win'] ? 1 : 0;
             $stats['losses'] += !$playerData['win'] ? 1 : 0;
@@ -124,16 +140,41 @@ class RiotApiService
             $stats['championsPlayed'][$playerData['championName']]['kills'] += $playerData['kills'];
             $stats['championsPlayed'][$playerData['championName']]['deaths'] += $playerData['deaths'];
             $stats['championsPlayed'][$playerData['championName']]['assists'] += $playerData['assists'];
-
-            // Compter les rôles joués
-            $role = $playerData['teamPosition'] ?? 'UNKNOWN';
-            if (!isset($stats['roleCount'][$role])) {
-                $stats['roleCount'][$role] = 0;
-            }
-            $stats['roleCount'][$role]++;
         }
 
         return $stats;
+    }
+
+    public function getRunes()
+    {
+        $latestVersion = $this->getLatestVersion();
+        $url = "https://ddragon.leagueoflegends.com/cdn/{$latestVersion}/data/en_US/runesReforged.json";
+
+        $response = Http::get($url);
+        $data = $response->json();
+
+        $runes = [];
+
+        foreach ($data as $tree) {
+            $runes[$tree['id']] = $tree['icon']; // Icône de l'arbre (ex: "Styles/ResolveIcon.png")
+            foreach ($tree['slots'] as $slot) {
+                foreach ($slot['runes'] as $rune) {
+                    $runes[$rune['id']] = $rune['icon']; // Icône des runes (ex: "Styles/Precision/Conqueror/Conqueror.png")
+                }
+            }
+        }
+
+        return $runes;
+    }
+
+
+    public function getLatestVersion()
+    {
+        $url = "https://ddragon.leagueoflegends.com/api/versions.json";
+        $response = Http::get($url);
+        $versions = $response->json();
+
+        return $versions[0] ?? "latest"; // Prend la version la plus récente
     }
 
 }

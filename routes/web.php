@@ -25,6 +25,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/riot/profile', [RiotController::class, 'showProfile'])->name('riot.profile');
     Route::get('/riot/profile/refresh', [RiotController::class, 'refreshMatches'])->name('riot.refresh');
     Route::get('/riot/profile/loadMore', [RiotController::class, 'loadMoreMatches'])->name('riot.loadMore');
+    Route::get('/match/details/{matchId}', [RiotController::class, 'getMatchDetailsAjax']);
+
 });
 
 

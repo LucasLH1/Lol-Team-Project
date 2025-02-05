@@ -43,6 +43,7 @@ class RiotController extends Controller
                 return redirect()->route('dashboard')->with('error', 'Impossible de récupérer les infos du joueur.');
             }
 
+
             // Récupérer les vraies infos en jeu (icône + niveau)
             $profileData = $this->riotApi->getSummonerProfile($summoner['puuid']);
 
@@ -62,7 +63,7 @@ class RiotController extends Controller
             $stats = $this->riotApi->getDetailedStats($summoner['puuid']);
 
             // Stocker les statistiques en cache pendant 1 heure
-            Cache::put($cacheStatsKey, $stats, now()->addMinutes(60));
+            Cache::put($cacheStatsKey, $stats, now()->addHours(12));
         }
 
         // Vérifier si les matchs sont en cache
@@ -90,7 +91,7 @@ class RiotController extends Controller
             }
 
             // Stocker les matchs en cache pendant 30 minutes
-            Cache::put($cacheMatchesKey, $matches, now()->addMinutes(30));
+            Cache::put($cacheMatchesKey, $matches, now()->addHours(12));
         }
 
         return view('riot.profile', compact('user', 'summoner', 'stats', 'matches'));
@@ -158,6 +159,60 @@ class RiotController extends Controller
 
         return response()->json(['matches' => $newMatches]);
     }
+
+    public function getMatchDetailsAjax($matchId)
+    {
+        $cacheKey = "match_details_{$matchId}";
+
+        // Vérifier si les détails sont déjà en cache
+        if (Cache::has($cacheKey)) {
+            return response()->json(Cache::get($cacheKey));
+        }
+
+        $matchData = $this->riotApi->getMatchDetails($matchId);
+        $latestVersion = $this->riotApi->getLatestVersion();
+        $runeIcons = $this->riotApi->getRunes();
+
+        $teams = [
+            'blue' => ['name' => 'Équipe Bleue', 'win' => false, 'players' => []],
+            'red' => ['name' => 'Équipe Rouge', 'win' => false, 'players' => []]
+        ];
+
+        foreach ($matchData['info']['participants'] as $player) {
+            $team = $player['teamId'] == 100 ? 'blue' : 'red';
+            $teams[$team]['win'] = $player['win'];
+
+            $primaryRuneId = $player['perks']['styles'][0]['selections'][0]['perk'] ?? null;
+            $secondaryRuneId = $player['perks']['styles'][1]['style'] ?? null;
+
+            $teams[$team]['players'][] = [
+                'name' => $player['summonerName'],
+                'champion' => $player['championName'],
+                'kda' => "{$player['kills']}/{$player['deaths']}/{$player['assists']}",
+                'cs' => $player['totalMinionsKilled'],
+                'dmg' => $player['totalDamageDealtToChampions'],
+                'primaryRune' => isset($runeIcons[$primaryRuneId]) ? "https://ddragon.leagueoflegends.com/cdn/img/{$runeIcons[$primaryRuneId]}" : null,
+                'secondaryRune' => isset($runeIcons[$secondaryRuneId]) ? "https://ddragon.leagueoflegends.com/cdn/img/{$runeIcons[$secondaryRuneId]}" : null,
+                'items' => [
+                    $player['item0'], $player['item1'], $player['item2'],
+                    $player['item3'], $player['item4'], $player['item5'], $player['item6']
+                ],
+                'latestVersion' => $latestVersion
+            ];
+        }
+
+        $responseData = ['teams' => array_values($teams)];
+
+        // Stocker en cache pour 1 heure
+        Cache::put($cacheKey, $responseData, now()->addHour());
+
+        return response()->json($responseData);
+    }
+
+
+
+
+
 
 
 

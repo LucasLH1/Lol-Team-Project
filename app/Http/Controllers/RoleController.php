@@ -17,7 +17,17 @@ class RoleController extends Controller
 
     public function assignRole(Request $request, User $user)
     {
-        $user->syncRoles($request->roles);
-        return back()->with('success', 'Rôles mis à jour');
+        if ($request->has('roles')) {
+            foreach ($request->roles as $roleName) {
+                if ($user->hasRole($roleName)) {
+                    $user->removeRole($roleName); // ❌ Supprime le rôle si déjà présent
+                } else {
+                    $user->assignRole($roleName); // ✅ Ajoute le rôle sinon
+                }
+            }
+        }
+
+        return response()->json(['success' => true, 'roles' => $user->roles->pluck('name')]);
     }
+
 }

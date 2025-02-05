@@ -19,6 +19,29 @@
                 <x-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autocomplete="username" />
             </div>
 
+            <!-- Riot Pseudo -->
+            <div class="mt-4">
+                <x-label for="riot_pseudo" value="Pseudo Riot" />
+                <x-input id="riot_pseudo" class="block mt-1 w-full" type="text" name="riot_pseudo" :value="old('riot_pseudo')" required autocomplete="off" />
+            </div>
+
+            <!-- Riot Tag -->
+            <div class="mt-4">
+                <x-label for="riot_tag" value="Tag Riot (#XXXX)" />
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 font-bold">#</span>
+                    <x-input id="riot_tag" class="block mt-1 w-full pl-7" type="text" name="riot_tag"
+                             value="{{ old('riot_tag') }}" required autocomplete="off" oninput="removeHash()" />
+                </div>
+            </div>
+
+            <script>
+                function removeHash() {
+                    let input = document.getElementById("riot_tag");
+                    input.value = input.value.replace("#", ""); // Supprime le "#" si l'utilisateur le tape
+                }
+            </script>
+
             <div class="mt-4">
                 <x-label for="password" value="{{ __('Password') }}" />
                 <x-input id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="new-password" />

@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\RoleController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\RiotController;
+use Illuminate\Support\Facades\Cache;
 
 Route::get('/', function () {
     return view('welcome');
@@ -16,6 +18,15 @@ Route::middleware([
         return view('dashboard');
     })->name('dashboard');
 });
+
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/riot/profile', [RiotController::class, 'showProfile'])->name('riot.profile');
+    Route::get('/riot/profile/refresh', [RiotController::class, 'refreshMatches'])->name('riot.refresh');
+    Route::get('/riot/profile/loadMore', [RiotController::class, 'loadMoreMatches'])->name('riot.loadMore');
+});
+
 
 Route::middleware(['auth', 'role:Administrateur'])->group(function () {
     Route::get('/admin/roles', [RoleController::class, 'index'])->name('roles.index');

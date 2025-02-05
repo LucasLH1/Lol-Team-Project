@@ -66,4 +66,12 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function lolProfile()
+    {
+        return $this->hasOne(LolProfile::class, 'user_id', 'id');
+    }
+
+
+
 }
